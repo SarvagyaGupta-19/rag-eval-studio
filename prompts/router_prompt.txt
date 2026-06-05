@@ -1,0 +1,8 @@
+Classify the following question into one of these categories:
+- FACTOID: Simple fact lookup (e.g., "What is X?", "When did Y happen?")
+- ANALYTICAL: Requires reasoning across multiple pieces of information
+- UNANSWERABLE: Likely not answerable from a document corpus
+
+Question: {question}
+
+Category (respond with just the category name):
