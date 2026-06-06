@@ -1,9 +1,6 @@
 """
-Download SEC 10-K filings from EDGAR as HTML files.
+Download SEC 10-K and 10-Q filings from EDGAR as HTML, convert to PDF, and save locally.
 Uses the EDGAR submissions API.
-
-SEC requires a User-Agent header with your name and email.
-Update the USER_AGENT below with your details.
 """
 import os
 import sys
@@ -12,16 +9,15 @@ import json
 import urllib.request
 import urllib.error
 from pathlib import Path
+import fitz  # PyMuPDF for HTML to PDF conversion
 
 # Force UTF-8 output on Windows
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
 # --- CONFIGURATION ---
-# SEC requires identification - update with YOUR details
 USER_AGENT = "RAGEvalStudio sarvagya@example.com"
 
-# Companies and their CIK numbers (Central Index Key)
 COMPANIES = {
     "AAPL": {"name": "Apple Inc", "cik": "0000320193"},
     "TSLA": {"name": "Tesla Inc", "cik": "0001318605"},
@@ -29,16 +25,16 @@ COMPANIES = {
     "NVDA": {"name": "NVIDIA Corp", "cik": "0001045810"},
 }
 
-# Which filings to download per company
+# Balanced mix of K and Q
 FILINGS_TO_DOWNLOAD = [
-    {"type": "10-K", "count": 3},  # Last 3 annual reports
+    {"type": "10-K", "count": 2},
+    {"type": "10-Q", "count": 2},
 ]
 
 OUTPUT_DIR = Path(__file__).parent.parent / "data" / "sec_filings"
 
 
 def fetch_json(url: str) -> dict:
-    """Fetch JSON from SEC EDGAR API with required headers."""
     req = urllib.request.Request(url)
     req.add_header("User-Agent", USER_AGENT)
     req.add_header("Accept", "application/json")
@@ -51,7 +47,6 @@ def fetch_json(url: str) -> dict:
 
 
 def fetch_bytes(url: str) -> bytes | None:
-    """Fetch raw bytes from a URL."""
     req = urllib.request.Request(url)
     req.add_header("User-Agent", USER_AGENT)
     try:
@@ -63,7 +58,6 @@ def fetch_bytes(url: str) -> bytes | None:
 
 
 def get_filing_urls(cik: str, filing_type: str, count: int) -> list[dict]:
-    """Get recent filing URLs from EDGAR for a given CIK and filing type."""
     cik_padded = cik.lstrip("0").zfill(10)
     url = f"https://data.sec.gov/submissions/CIK{cik_padded}.json"
     data = fetch_json(url)
@@ -91,24 +85,30 @@ def get_filing_urls(cik: str, filing_type: str, count: int) -> list[dict]:
     return results
 
 
-def download_filing(url: str, output_path: Path) -> bool:
-    """Download a filing document and save it."""
+def download_filing_as_pdf(url: str, output_path: Path) -> bool:
     print(f"  Downloading: {url}")
     content = fetch_bytes(url)
     if content:
-        output_path.write_bytes(content)
-        size_kb = len(content) / 1024
-        print(f"  [OK] Saved: {output_path.name} ({size_kb:.0f} KB)")
-        return True
+        try:
+            # Load HTML content and convert to PDF using PyMuPDF
+            html_doc = fitz.open(stream=content, filetype="html")
+            pdf_bytes = html_doc.convert_to_pdf()
+            output_path.write_bytes(pdf_bytes)
+            size_kb = len(pdf_bytes) / 1024
+            print(f"  [OK] Saved PDF: {output_path.name} ({size_kb:.0f} KB)")
+            html_doc.close()
+            return True
+        except Exception as e:
+            print(f"  [FAIL] Conversion to PDF failed: {e}")
+            return False
     return False
 
 
 def main():
     print("=" * 60)
-    print("SEC EDGAR Filing Downloader for RAG Eval Studio")
+    print("SEC EDGAR PDF Downloader for RAG Eval Studio")
     print("=" * 60)
-    print(f"\nOutput directory: {OUTPUT_DIR}")
-
+    
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     total_downloaded = 0
@@ -133,7 +133,9 @@ def main():
 
             for filing in filings:
                 year = filing["date"][:4]
-                filename = f"{ticker}_{filing_type.replace('-', '')}_{year}.htm"
+                # Note: Adding accession to filename to avoid overwrites for multiple Qs in same year
+                accession_short = filing["accession"].split("-")[-1]
+                filename = f"{ticker}_{filing_type.replace('-', '')}_{year}_{accession_short}.pdf"
                 output_path = OUTPUT_DIR / filename
 
                 if output_path.exists():
@@ -141,25 +143,20 @@ def main():
                     total_downloaded += 1
                     continue
 
-                success = download_filing(filing["url"], output_path)
+                success = download_filing_as_pdf(filing["url"], output_path)
                 if success:
                     total_downloaded += 1
                 else:
                     total_failed += 1
 
-                # SEC rate limit: max 10 requests/sec
                 time.sleep(0.5)
 
-        # Be polite to SEC servers
         time.sleep(1)
 
     print(f"\n{'=' * 60}")
     print(f"Done! Downloaded: {total_downloaded}, Failed: {total_failed}")
     print(f"Files are in: {OUTPUT_DIR}")
-    print(f"\nNext step: Upload these to your S3 bucket.")
-    print(f"  Run: .venv\\Scripts\\python.exe scripts/upload_to_s3.py")
     print(f"{'=' * 60}")
-
 
 if __name__ == "__main__":
     main()
