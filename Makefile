@@ -12,5 +12,8 @@ eval:
 run:
 	streamlit run app/main.py
 
+pipeline:
+	python scripts/run_pipeline.py
+
 lint:
 	ruff check .

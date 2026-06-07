@@ -30,9 +30,10 @@ cp .env.example .env
 # Fill in your API keys in .env
 
 # Run
-make run                      # Streamlit UI
+make pipeline                 # End-to-End Pipeline test
 make test                     # Unit tests
 make eval                     # RAGAS evaluation
+make run                      # Streamlit UI
 ```
 
 ## 🏗️ Architecture
@@ -47,11 +48,11 @@ S3 (PDFs) → Loader → Chunker → Embeddings → Qdrant (Dense)
 
 ## 📊 Evaluation Results
 
-_Coming after Day 4 — RAGAS evaluation across chunking strategies._
+*RAGAS evaluation metrics across different chunking strategies will be published here.*
 
 ## 📝 Design Decisions
 
-_Coming after Day 7 — detailed writeup of architectural choices._
+*Detailed writeup of architectural choices will be added here.*
 
 ## License
 

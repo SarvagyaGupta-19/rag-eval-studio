@@ -1,5 +1,5 @@
 """
-Day 3 integration test: run 10 queries through the full pipeline.
+End-to-End integration test: run 10 queries through the full pipeline.
 Tests RAG chain + query router + LangSmith tracing.
 """
 import sys
@@ -42,7 +42,7 @@ TEST_QUERIES = [
 
 def main():
     print("=" * 70)
-    print("Day 3 Integration Test: RAG Chain + Query Router + LangSmith")
+    print("End-to-End Pipeline Test: RAG Chain + Query Router + LangSmith")
     print("=" * 70)
 
     # Initialize components
@@ -86,7 +86,7 @@ def main():
         })
 
     # Save results
-    output_path = Path("data/day3_test_results.json")
+    output_path = Path("data/pipeline_results.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
 
