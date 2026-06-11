@@ -95,46 +95,6 @@ if not st.session_state.messages:
         """,
         unsafe_allow_html=True
     )
-
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(
-            '''
-            <div class="glass-panel">
-                <h3>Compare Tesla & Apple Revenue</h3>
-                <p>What were the primary drivers of revenue growth for Tesla and Apple in their latest 10-K filings?</p>
-            </div>
-            ''', unsafe_allow_html=True
-        )
-        st.write("<br>", unsafe_allow_html=True)
-        st.markdown(
-            '''
-            <div class="glass-panel">
-                <h3>NVIDIA Risk Factors</h3>
-                <p>Summarize the key supply chain risks mentioned in NVIDIA's latest annual report.</p>
-            </div>
-            ''', unsafe_allow_html=True
-        )
-
-    with col2:
-        st.markdown(
-            '''
-            <div class="glass-panel">
-                <h3>JPMorgan Interest Rates</h3>
-                <p>How did rising interest rates impact JPMorgan Chase's net interest income?</p>
-            </div>
-            ''', unsafe_allow_html=True
-        )
-        st.write("<br>", unsafe_allow_html=True)
-        st.markdown(
-            '''
-            <div class="glass-panel">
-                <h3>Deep Dive: Apple Services</h3>
-                <p>Provide a detailed breakdown of Apple's Services segment performance and margins.</p>
-            </div>
-            ''', unsafe_allow_html=True
-        )
 else:
     # Chat State (Hide the big header once chatting)
     st.markdown("<h3>Finance Insights</h3><br>", unsafe_allow_html=True)
@@ -152,18 +112,23 @@ if prompt := st.chat_input("Ask about SEC Filings (e.g., 'What were Apple's 2024
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.status("Analyzing...", expanded=True) as status:
-            st.write("Understanding query intent...")
-            query_type = router.classify(prompt)
-            params = router.get_retrieval_params(query_type)
-            params["top_k"] = 5 # Hardcoded safe default
-            
-            st.write("Scanning semantic vectors and keyword indexes...")
-            st.write("Synthesizing financial data...")
-            
-            result = chain.query_with_routing(prompt, query_type, params)
-            
-            status.update(label="Analysis complete", state="complete", expanded=False)
+        thinking_placeholder = st.empty()
+        thinking_placeholder.markdown("""
+        <div class="grid-dots-container">
+            <div class="grid-dot"></div>
+            <div class="grid-dot"></div>
+            <div class="grid-dot"></div>
+            <span class="thinking-text">Analyzing corporate filings...</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        query_type = router.classify(prompt)
+        params = router.get_retrieval_params(query_type)
+        params["top_k"] = 5 # Hardcoded safe default
+        
+        result = chain.query_with_routing(prompt, query_type, params)
+        
+        thinking_placeholder.empty()
         
         st.markdown(result["answer"])
         
