@@ -1,4 +1,4 @@
-"""RAG Eval Studio — SEC Filing Document Q&A."""
+"""Finance Insights — SEC Filing Document Q&A."""
 import sys
 from pathlib import Path
 
@@ -16,17 +16,13 @@ from services.rag_chain import RAGChain
 from services.query_router import QueryRouter
 from services.document_processor import DocumentProcessor
 
-from app.components import query_panel, answer_panel, metrics_panel, comparison_panel
-
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Terminal | SEC Filings",
-    page_icon="⚡",
+    page_title="Finance Insights",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
-# ─── Inject Custom CSS ────────────────────────────────────────────────────────
 def load_css():
     css_path = Path(__file__).parent / "styles.css"
     if css_path.exists():
@@ -34,6 +30,10 @@ def load_css():
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 load_css()
+
+# Initialize session state for chat
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # ─── Pipeline initialization ─────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
@@ -45,97 +45,136 @@ def init_pipeline():
     router = QueryRouter()
     return vs, bm25, hybrid, router
 
-
 @st.cache_resource(show_spinner=False)
-def init_chain(_hybrid, prompt_version: str):
-    return RAGChain(_hybrid, prompt_version=prompt_version)
+def init_chain(_hybrid):
+    # Hardcode safe defaults for enterprise use
+    return RAGChain(_hybrid, prompt_version="rag_v1")
 
-
-# ─── Sidebar (Developer Tools) ────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### Settings")
-
-    prompt_version = st.selectbox(
-        "Response style",
-        ["rag_v1", "rag_v2_cot"],
-        format_func=lambda x: "Direct Answer" if x == "rag_v1" else "Step-by-Step Reasoning",
-    )
-    top_k = st.slider("Sources depth", 1, 10, 5)
-    comparison_mode = st.toggle("Compare search engines", value=False)
-
-    st.divider()
-    dev_mode = st.toggle("🛠️ Developer Mode", value=False)
-
-    if dev_mode:
-        st.divider()
-        metrics_panel.render_dev_tools(
-            result=st.session_state.get("last_result")
-        )
-
-
-# ─── Initialize pipeline ─────────────────────────────────────────────────────
-# We use a skeleton loader while the models load into memory.
 if "pipeline_loaded" not in st.session_state:
-    with st.spinner("Waking up semantic engines..."):
+    with st.spinner("Initializing system..."):
         vs, bm25, hybrid, router = init_pipeline()
-        chain = init_chain(hybrid, prompt_version)
+        chain = init_chain(hybrid)
         st.session_state["pipeline_loaded"] = True
 else:
     vs, bm25, hybrid, router = init_pipeline()
-    chain = init_chain(hybrid, prompt_version)
+    chain = init_chain(hybrid)
 
+
+# ─── Sidebar ────────────────────────────────────────────────
 with st.sidebar:
-    st.divider()
-    st.markdown("### 📄 Custom Knowledge")
-    uploaded_file = st.file_uploader("Upload your own PDF to ask questions about it", type=["pdf"])
+    st.markdown("### Document Upload")
+    uploaded_file = st.file_uploader("Upload custom PDF for analysis", type=["pdf"])
     if uploaded_file is not None:
-        if st.button("Add to Database", use_container_width=True):
+        if st.button("Add to Knowledge Base", use_container_width=True):
             with st.status("Processing Document...", expanded=True) as status:
                 st.write("Extracting text and generating chunks...")
                 processor = DocumentProcessor()
                 chunks = processor.process_pdf_stream(uploaded_file.read(), uploaded_file.name)
-                
                 st.write(f"Generating embeddings for {len(chunks)} chunks...")
                 vs.upsert_chunks(chunks)
-                
-                st.write("Updating BM25 Keyword Index...")
+                st.write("Updating Keyword Index...")
                 bm25.add_chunks(chunks)
-                
-                status.update(label=f"Successfully added '{uploaded_file.name}'!", state="complete", expanded=False)
+                status.update(label=f"Successfully added '{uploaded_file.name}'", state="complete", expanded=False)
+
+    st.divider()
+    
+    if st.button("New Session"):
+        st.session_state.messages = []
+        st.rerun()
 
 
 # ─── Main area ────────────────────────────────────────────────────────────────
-st.markdown("## ⚡ SEC Intelligence Terminal")
-st.markdown(
-    "<span style='color:#8b949e;'>Query millions of data points across Apple, Tesla, "
-    "NVIDIA, and JPMorgan Chase filings instantly.</span>",
-    unsafe_allow_html=True
-)
-st.write("") # Spacer
+if not st.session_state.messages:
+    # Landing Page State
+    st.markdown(
+        """
+        <div class="landing-header">
+            <h2>Finance Insights</h2>
+            <p>Query millions of data points across corporate filings instantly.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-question = query_panel.render()
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(
+            '''
+            <div class="glass-panel">
+                <h3>Compare Tesla & Apple Revenue</h3>
+                <p>What were the primary drivers of revenue growth for Tesla and Apple in their latest 10-K filings?</p>
+            </div>
+            ''', unsafe_allow_html=True
+        )
+        st.write("<br>", unsafe_allow_html=True)
+        st.markdown(
+            '''
+            <div class="glass-panel">
+                <h3>NVIDIA Risk Factors</h3>
+                <p>Summarize the key supply chain risks mentioned in NVIDIA's latest annual report.</p>
+            </div>
+            ''', unsafe_allow_html=True
+        )
 
-if question:
-    if comparison_mode:
-        comparison_panel.render(question, chain, top_k)
-    else:
-        # Active Loading States
+    with col2:
+        st.markdown(
+            '''
+            <div class="glass-panel">
+                <h3>JPMorgan Interest Rates</h3>
+                <p>How did rising interest rates impact JPMorgan Chase's net interest income?</p>
+            </div>
+            ''', unsafe_allow_html=True
+        )
+        st.write("<br>", unsafe_allow_html=True)
+        st.markdown(
+            '''
+            <div class="glass-panel">
+                <h3>Deep Dive: Apple Services</h3>
+                <p>Provide a detailed breakdown of Apple's Services segment performance and margins.</p>
+            </div>
+            ''', unsafe_allow_html=True
+        )
+else:
+    # Chat State (Hide the big header once chatting)
+    st.markdown("<h3>Finance Insights</h3><br>", unsafe_allow_html=True)
+
+# Display chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Chat Input
+if prompt := st.chat_input("Ask about SEC Filings (e.g., 'What were Apple's 2024 margins?')..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
         with st.status("Analyzing...", expanded=True) as status:
-            st.write("🧠 Understanding query intent...")
-            query_type = router.classify(question)
+            st.write("Understanding query intent...")
+            query_type = router.classify(prompt)
             params = router.get_retrieval_params(query_type)
-            params["top_k"] = top_k
+            params["top_k"] = 5 # Hardcoded safe default
             
-            st.write("🔍 Scanning semantic vectors and keyword indexes...")
-            # The RAG chain handles both retrieval and generation internally right now.
-            st.write("⚡ Synthesizing financial data...")
+            st.write("Scanning semantic vectors and keyword indexes...")
+            st.write("Synthesizing financial data...")
             
-            result = chain.query_with_routing(question, query_type, params)
+            result = chain.query_with_routing(prompt, query_type, params)
             
             status.update(label="Analysis complete", state="complete", expanded=False)
-
-        # Store for dev mode access
-        st.session_state["last_result"] = result
-
-        # Display answer
-        answer_panel.render(result)
+        
+        st.markdown(result["answer"])
+        
+        st.write("")
+        st.markdown("**Sources:**")
+        html_sources = ""
+        for i, chunk in enumerate(result["source_documents"]):
+            source_name = chunk.metadata.get('source', 'Unknown Document')
+            source_name = Path(source_name).stem
+            html_sources += f'<span class="source-pill">{source_name}</span>'
+            
+        st.markdown(html_sources, unsafe_allow_html=True)
+        
+    st.session_state.messages.append({"role": "assistant", "content": result["answer"]})
