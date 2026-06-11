@@ -1,1 +1,1 @@
-# Placeholder for app components
+# UI components for RAG Eval Studio
