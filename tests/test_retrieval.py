@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.embedding import EmbeddingService
-from services.chunker import Chunk, Chunker, ChunkStrategy
+from services.chunker import Chunk
 from services.bm25_store import BM25Store
 
 
