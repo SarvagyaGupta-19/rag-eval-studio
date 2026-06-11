@@ -17,7 +17,7 @@ class DocumentProcessor:
         )
 
     def process_pdf_stream(self, file_bytes: bytes, filename: str) -> list[Chunk]:
-        \"\"\"Extract text from a PDF byte stream and chunk it.\"\"\"
+        """Extract text from a PDF byte stream and chunk it."""
         try:
             doc = fitz.open(stream=file_bytes, filetype="pdf")
         except Exception as e:
