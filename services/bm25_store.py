@@ -34,6 +34,15 @@ class BM25Store:
             if scores[i] > 0
         ]
 
+    def add_chunks(self, new_chunks: list[Chunk]):
+        """Dynamically append new chunks, rebuild index, and save."""
+        if not new_chunks:
+            return
+        self.documents.extend(new_chunks)
+        tokenized = [self._tokenize(c.content) for c in self.documents]
+        self.bm25 = BM25Okapi(tokenized)
+        self.save()
+
     def save(self, path: str = "data/bm25_index.json"):
         """Persist chunks to disk so BM25 can be rebuilt without re-loading PDFs."""
         out = Path(path)

@@ -14,6 +14,7 @@ from services.bm25_store import BM25Store
 from services.hybrid_retriever import HybridRetriever
 from services.rag_chain import RAGChain
 from services.query_router import QueryRouter
+from services.document_processor import DocumentProcessor
 
 from app.components import query_panel, answer_panel, metrics_panel, comparison_panel
 
@@ -82,6 +83,25 @@ if "pipeline_loaded" not in st.session_state:
 else:
     vs, bm25, hybrid, router = init_pipeline()
     chain = init_chain(hybrid, prompt_version)
+
+with st.sidebar:
+    st.divider()
+    st.markdown("### 📄 Custom Knowledge")
+    uploaded_file = st.file_uploader("Upload your own PDF to ask questions about it", type=["pdf"])
+    if uploaded_file is not None:
+        if st.button("Add to Database", use_container_width=True):
+            with st.status("Processing Document...", expanded=True) as status:
+                st.write("Extracting text and generating chunks...")
+                processor = DocumentProcessor()
+                chunks = processor.process_pdf_stream(uploaded_file.read(), uploaded_file.name)
+                
+                st.write(f"Generating embeddings for {len(chunks)} chunks...")
+                vs.upsert_chunks(chunks)
+                
+                st.write("Updating BM25 Keyword Index...")
+                bm25.add_chunks(chunks)
+                
+                status.update(label=f"Successfully added '{uploaded_file.name}'!", state="complete", expanded=False)
 
 
 # ─── Main area ────────────────────────────────────────────────────────────────
