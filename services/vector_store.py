@@ -1,4 +1,4 @@
-"""Qdrant Cloud vector store — upsert, search, and manage collections."""
+"""Qdrant vector store (local persistent) — upsert, search, and manage collections."""
 from qdrant_client import QdrantClient, models
 from infra.config import Config
 from services.chunker import Chunk
@@ -7,9 +7,9 @@ import uuid
 
 
 class VectorStore:
-    def __init__(self):
-        self.client = QdrantClient(url=Config.QDRANT_URL, api_key=Config.QDRANT_API_KEY)
-        self.collection = Config.QDRANT_COLLECTION
+    def __init__(self, collection_name: str = None):
+        self.client = QdrantClient(path="qdrant_data")  # local persistent storage
+        self.collection = collection_name or Config.QDRANT_COLLECTION
         self.embedder = EmbeddingService()
 
     def create_collection(self):

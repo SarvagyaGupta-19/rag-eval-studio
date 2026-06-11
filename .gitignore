@@ -40,3 +40,4 @@ eval/results/
 
 # Data files
 data/
+qdrant_data/
