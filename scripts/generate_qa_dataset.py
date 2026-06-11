@@ -1,0 +1,241 @@
+import json
+from pathlib import Path
+
+# Hand-annotated QA pairs based on SEC filings (AAPL, TSLA, NVDA, JPM)
+qa_pairs = [
+    # 10 FACTOID (Easy)
+    {
+        "id": "f001",
+        "question": "What was Apple's total net sales for the fiscal year ended September 28, 2024?",
+        "ground_truth": "Apple's total net sales for the fiscal year ended September 28, 2024, were $391,035 million.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f002",
+        "question": "What is the name of Apple's Chief Executive Officer as listed in the 2024 10-K?",
+        "ground_truth": "Timothy D. Cook is the Chief Executive Officer of Apple.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f003",
+        "question": "How many shares of common stock were authorized by Tesla as of December 31, 2024?",
+        "ground_truth": "Tesla authorized 6,000,000,000 shares of common stock.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f004",
+        "question": "What was NVIDIA's revenue from the Data Center segment in fiscal year 2025?",
+        "ground_truth": "NVIDIA's Data Center revenue for fiscal year 2025 (ended January 26, 2025) was $115,186 million.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f005",
+        "question": "Where is JPMorgan Chase & Co.'s principal executive office located?",
+        "ground_truth": "JPMorgan Chase & Co.'s principal executive office is located at 383 Madison Avenue, New York, New York.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f006",
+        "question": "What is the ticker symbol for NVIDIA Corporation common stock?",
+        "ground_truth": "The ticker symbol for NVIDIA Corporation is NVDA.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f007",
+        "question": "According to the 2024 10-K, what segment generates the most revenue for Apple?",
+        "ground_truth": "The iPhone segment generates the most revenue for Apple.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f008",
+        "question": "What was Tesla's total automotive revenues in 2024?",
+        "ground_truth": "Tesla's total automotive revenues in 2024 were $77,070 million.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f009",
+        "question": "Does JPMorgan Chase & Co. pay a dividend on its common stock?",
+        "ground_truth": "Yes, JPMorgan Chase & Co. pays a dividend on its common stock.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+    {
+        "id": "f010",
+        "question": "When does NVIDIA's fiscal year end?",
+        "ground_truth": "NVIDIA's fiscal year ends on the last Sunday in January.",
+        "difficulty": "easy",
+        "category": "factoid"
+    },
+
+    # 8 ANALYTICAL (Medium)
+    {
+        "id": "a001",
+        "question": "Why did Apple's gross margin percentage increase from 2023 to 2024?",
+        "ground_truth": "Apple's gross margin percentage increased primarily due to a favorable product mix and lower material costs.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a002",
+        "question": "What are the key risk factors associated with Tesla's Gigafactory production?",
+        "ground_truth": "Key risks include supply chain disruptions, difficulty in scaling manufacturing processes, cost overruns, and reliance on single-source suppliers for battery materials.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a003",
+        "question": "How does NVIDIA differentiate its networking products from competitors?",
+        "ground_truth": "NVIDIA differentiates its networking products by offering end-to-end solutions, including InfiniBand and Ethernet technologies, optimized for high-performance computing and AI workloads.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a004",
+        "question": "What strategies is JPMorgan Chase using to manage its interest rate risk?",
+        "ground_truth": "JPMorgan manages interest rate risk through asset-liability management, diversifying its loan portfolio, and utilizing derivative instruments like interest rate swaps.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a005",
+        "question": "Explain the impact of foreign currency fluctuations on Apple's international sales.",
+        "ground_truth": "A strong US dollar generally decreases the value of Apple's international sales when translated into dollars, while a weak dollar increases it. Apple uses foreign currency forward and option contracts to hedge against this risk.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a006",
+        "question": "How did Tesla's energy generation and storage revenues change compared to the previous year?",
+        "ground_truth": "Tesla's energy generation and storage revenues increased significantly due to higher deployments of Megapack and Powerwall.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a007",
+        "question": "What impact does the transition to cloud computing have on NVIDIA's business?",
+        "ground_truth": "The transition to cloud computing drives massive demand for NVIDIA's Data Center GPUs, as hyperscale cloud service providers build out AI infrastructure.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+    {
+        "id": "a008",
+        "question": "How does JPMorgan evaluate credit risk in its wholesale portfolio?",
+        "ground_truth": "JPMorgan evaluates credit risk through rigorous underwriting standards, assigning risk ratings to borrowers, and continuously monitoring borrower financial health and industry trends.",
+        "difficulty": "medium",
+        "category": "analytical"
+    },
+
+    # 7 MULTI-HOP (Hard)
+    {
+        "id": "m001",
+        "question": "Compare the total R&D expenses of Apple and NVIDIA for their respective most recent fiscal years.",
+        "ground_truth": "Apple's R&D expenses for fiscal 2024 were $31,370 million, while NVIDIA's R&D expenses for fiscal 2025 (ended January 26, 2025) were $12,914 million.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m002",
+        "question": "Which company, Tesla or Apple, reported a higher total revenue in their most recent 10-K?",
+        "ground_truth": "Apple reported a higher total revenue ($391,035 million for fiscal 2024) compared to Tesla ($97,690 million for calendar year 2024).",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m003",
+        "question": "Both NVIDIA and Tesla are heavily involved in AI. What specific AI hardware products does each mention in their filings?",
+        "ground_truth": "NVIDIA mentions products like the Hopper and Blackwell architecture GPUs (H100, B200), while Tesla mentions its Dojo supercomputer and Full Self-Driving (FSD) hardware.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m004",
+        "question": "Compare the primary geographic markets driving growth for Apple versus JPMorgan.",
+        "ground_truth": "Apple's growth is heavily influenced by the Americas, Europe, and Greater China, whereas JPMorgan's core retail and commercial banking operations are primarily concentrated in the United States.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m005",
+        "question": "How do the dividend policies of Apple and Tesla differ according to their 10-K filings?",
+        "ground_truth": "Apple regularly pays quarterly cash dividends and plans to continue doing so, whereas Tesla has never declared or paid cash dividends and intends to retain all future earnings to finance growth.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m006",
+        "question": "Looking at NVIDIA and Apple, how does their reliance on third-party manufacturing differ?",
+        "ground_truth": "Both rely heavily on third parties. NVIDIA is fabless and relies primarily on TSMC to manufacture its chips. Apple relies on outsourcing partners (mostly in Asia, like Foxconn) for the assembly of its hardware products.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+    {
+        "id": "m007",
+        "question": "What is the difference in how Tesla and JPMorgan approach regulatory compliance risks?",
+        "ground_truth": "Tesla focuses heavily on environmental regulations, vehicle safety standards, and energy market rules, while JPMorgan focuses on complex global financial regulations, capital requirements (Basel III), and consumer protection laws.",
+        "difficulty": "hard",
+        "category": "multi_hop"
+    },
+
+    # 5 UNANSWERABLE (Test hallucination resistance)
+    {
+        "id": "u001",
+        "question": "What is the exact recipe for the cafeteria food at Apple Park?",
+        "ground_truth": "I don't have enough information to answer this. The provided SEC filings do not contain cafeteria recipes.",
+        "difficulty": "hard",
+        "category": "unanswerable"
+    },
+    {
+        "id": "u002",
+        "question": "How many personal vehicles does Elon Musk own?",
+        "ground_truth": "I don't have enough information to answer this based on the provided documents.",
+        "difficulty": "hard",
+        "category": "unanswerable"
+    },
+    {
+        "id": "u003",
+        "question": "What specific codebase is used for NVIDIA's internal HR software?",
+        "ground_truth": "I don't have enough information to answer this. Internal software codebases are not disclosed in 10-K filings.",
+        "difficulty": "hard",
+        "category": "unanswerable"
+    },
+    {
+        "id": "u004",
+        "question": "Who will win the next U.S. Presidential Election according to JPMorgan?",
+        "ground_truth": "I don't have enough information to answer this. JPMorgan's financial filings do not predict election outcomes.",
+        "difficulty": "hard",
+        "category": "unanswerable"
+    },
+    {
+        "id": "u005",
+        "question": "What is the exact battery chemistry formulation for the next generation Tesla cell?",
+        "ground_truth": "I don't have enough information to answer this. Proprietary battery formulations are not detailed in public SEC filings.",
+        "difficulty": "hard",
+        "category": "unanswerable"
+    }
+]
+
+def main():
+    output_path = Path("eval/datasets/qa_pairs.jsonl")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, "w", encoding="utf-8") as f:
+        for pair in qa_pairs:
+            f.write(json.dumps(pair) + "\n")
+            
+    print(f"Successfully generated {len(qa_pairs)} QA pairs at {output_path}")
+    print("Distribution:")
+    print(f"Factoid: {sum(1 for p in qa_pairs if p['category'] == 'factoid')}")
+    print(f"Analytical: {sum(1 for p in qa_pairs if p['category'] == 'analytical')}")
+    print(f"Multi-hop: {sum(1 for p in qa_pairs if p['category'] == 'multi_hop')}")
+    print(f"Unanswerable: {sum(1 for p in qa_pairs if p['category'] == 'unanswerable')}")
+
+if __name__ == "__main__":
+    main()
