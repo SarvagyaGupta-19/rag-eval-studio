@@ -135,8 +135,9 @@ if prompt := st.chat_input("Ask about SEC Filings (e.g., 'What were Apple's 2024
         st.write("")
         st.markdown("**Sources:**")
         html_sources = ""
-        for i, chunk in enumerate(result["source_documents"]):
-            source_name = chunk.metadata.get('source', 'Unknown Document')
+        for i, chunk in enumerate(result["contexts"]):
+            # `chunk` is a dict with 'metadata' and 'content' as returned by HybridRetriever
+            source_name = chunk['metadata'].get('source', 'Unknown Document')
             source_name = Path(source_name).stem
             html_sources += f'<span class="source-pill">{source_name}</span>'
             
