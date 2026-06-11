@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain_core.tracers.context import tracing_v2_enabled
 from infra.config import Config
+from services.hybrid_retriever import HybridRetriever
 from pathlib import Path
 import time
 
@@ -13,10 +14,13 @@ import time
 class RAGChain:
     def __init__(self, retriever: HybridRetriever, prompt_version: str = "rag_v1"):
         self.retriever = retriever
+        # Use a smaller/different model for generation to split the rate limit load.
+        # The evaluator (judge) will still use the more powerful Config.GROQ_MODEL.
+        self.model_name = "llama-3.1-8b-instant"
         self.llm = ChatGroq(
-            model=Config.GROQ_MODEL,
+            model=self.model_name,
             api_key=Config.GROQ_API_KEY,
-            temperature=0.1,
+            temperature=0,
             max_tokens=1024,
         )
         self.prompt_version = prompt_version
@@ -27,13 +31,10 @@ class RAGChain:
         template = prompt_path.read_text()
         return PromptTemplate(template=template, input_variables=["context", "question"])
 
-    def query(self, question: str, top_k: int = 5) -> dict:
-        """Run full RAG pipeline: retrieve -> format -> generate."""
-        start_time = time.time()
-
-        # Retrieve
-        retrieved = self.retriever.retrieve(question, top_k=top_k)
-        context = "\n\n---\n\n".join(
+    @staticmethod
+    def _format_context(retrieved: list[dict]) -> str:
+        """Format retrieved chunks into a context string for the LLM prompt."""
+        return "\n\n---\n\n".join(
             [
                 f"[Source: {r['metadata'].get('source', 'unknown')}, "
                 f"Page: {r['metadata'].get('page_number', '?')}]\n{r['content']}"
@@ -41,11 +42,19 @@ class RAGChain:
             ]
         )
 
-        # Generate with LangSmith tracing
+    def _generate(self, context: str, question: str) -> str:
+        """Run LLM generation with LangSmith tracing."""
         chain = self.prompt_template | self.llm | StrOutputParser()
-
         with tracing_v2_enabled(project_name="rag-eval-studio"):
-            answer = chain.invoke({"context": context, "question": question})
+            return chain.invoke({"context": context, "question": question})
+
+    def query(self, question: str, top_k: int = 5) -> dict:
+        """Run full RAG pipeline: retrieve -> format -> generate."""
+        start_time = time.time()
+
+        retrieved = self.retriever.retrieve(question, top_k=top_k)
+        context = self._format_context(retrieved)
+        answer = self._generate(context, question)
 
         elapsed = time.time() - start_time
 
@@ -54,7 +63,7 @@ class RAGChain:
             "answer": answer,
             "contexts": retrieved,
             "prompt_version": self.prompt_version,
-            "model": Config.GROQ_MODEL,
+            "model": self.model_name,
             "latency_seconds": round(elapsed, 2),
             "top_k": top_k,
         }
@@ -66,23 +75,11 @@ class RAGChain:
         top_k = params.get("top_k", 5)
         dense_weight = params.get("dense_weight", 0.6)
 
-        # Retrieve with routed params
         retrieved = self.retriever.retrieve(
             question, top_k=top_k, dense_weight=dense_weight
         )
-        context = "\n\n---\n\n".join(
-            [
-                f"[Source: {r['metadata'].get('source', 'unknown')}, "
-                f"Page: {r['metadata'].get('page_number', '?')}]\n{r['content']}"
-                for r in retrieved
-            ]
-        )
-
-        # Generate with tracing
-        chain = self.prompt_template | self.llm | StrOutputParser()
-
-        with tracing_v2_enabled(project_name="rag-eval-studio"):
-            answer = chain.invoke({"context": context, "question": question})
+        context = self._format_context(retrieved)
+        answer = self._generate(context, question)
 
         elapsed = time.time() - start_time
 
@@ -91,7 +88,7 @@ class RAGChain:
             "answer": answer,
             "contexts": retrieved,
             "prompt_version": self.prompt_version,
-            "model": Config.GROQ_MODEL,
+            "model": self.model_name,
             "latency_seconds": round(elapsed, 2),
             "top_k": top_k,
             "query_type": query_type,
