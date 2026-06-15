@@ -95,11 +95,11 @@ class TestRAGChain:
 
         chain = RAGChain.__new__(RAGChain)
         chain.retriever = mock_retriever
+        chain.reranker = None
         chain.prompt_version = "rag_v1"
         chain.model_name = "llama-3.1-8b-instant"
         chain.llm = MagicMock()
 
-        # Build a mock prompt template that supports the | operator chain
         mock_prompt = MagicMock()
         mock_composed = MagicMock()
         mock_final = MagicMock(return_value="Apple's revenue was $394 billion.")

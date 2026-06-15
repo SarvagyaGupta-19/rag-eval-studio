@@ -1,4 +1,4 @@
-.PHONY: install test eval run lint
+.PHONY: install test eval run lint ci pipeline
 
 install:
 	pip install -r requirements.txt
@@ -17,3 +17,6 @@ pipeline:
 
 lint:
 	ruff check .
+
+ci: test
+	@echo "CI checks passed."

@@ -117,3 +117,44 @@ class TestHybridRetrieverLogic:
         # It should have both retrieval methods
         assert "dense" in results[0]["retrieval_methods"]
         assert "sparse" in results[0]["retrieval_methods"]
+
+    def test_hybrid_retriever_empty_results(self):
+        """When both dense and sparse return empty, hybrid returns empty."""
+        from services.hybrid_retriever import HybridRetriever
+
+        class EmptyDense:
+            def search(self, query, top_k=5):
+                return []
+
+        class EmptySparse:
+            def search(self, query, top_k=5):
+                return []
+
+        hybrid = HybridRetriever(EmptyDense(), EmptySparse())
+        results = hybrid.retrieve("nonexistent topic", top_k=3)
+        assert results == []
+
+
+class TestBM25AddChunks:
+    """Test the dynamic add_chunks feature added for PDF upload."""
+
+    def test_add_chunks_appends_and_reindexes(self, tmp_path):
+        bm25 = BM25Store()
+        bm25.index(SAMPLE_CHUNKS)
+        original_count = len(bm25.documents)
+
+        new_chunk = Chunk(
+            content="Microsoft Azure revenue exceeded 60 billion in 2024.",
+            metadata={"source": "MSFT_10K_2024.pdf", "page": 1, "chunk_index": 0},
+        )
+        # Override save path for test isolation
+        save_path = str(tmp_path / "bm25_append.json")
+        bm25.save = lambda path=save_path: BM25Store.save(bm25, path)
+        bm25.add_chunks([new_chunk])
+
+        assert len(bm25.documents) == original_count + 1
+
+        results = bm25.search("Microsoft Azure revenue", top_k=1)
+        assert len(results) > 0
+        assert "microsoft" in results[0]["content"].lower()
+

@@ -3,6 +3,7 @@ from qdrant_client import QdrantClient, models
 from infra.config import Config
 from services.chunker import Chunk
 from services.embedding import EmbeddingService
+from services.retry import retry_with_backoff
 import uuid
 
 
@@ -24,6 +25,7 @@ class VectorStore:
                 ),
             )
 
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     def upsert_chunks(self, chunks: list[Chunk], batch_size: int = 64):
         """Embed and upsert chunks in batches."""
         self.create_collection()
@@ -41,6 +43,7 @@ class VectorStore:
             ]
             self.client.upsert(collection_name=self.collection, points=points)
 
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     def search(self, query: str, top_k: int = 5) -> list[dict]:
         """Dense retrieval — embed query and search Qdrant."""
         query_vector = self.embedder.embed_query(query)

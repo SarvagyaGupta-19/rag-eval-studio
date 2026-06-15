@@ -1,5 +1,7 @@
-"""RAG chain with Groq LLM and LangSmith tracing."""
+"""RAG chain with Groq LLM, cross-encoder reranking, and LangSmith tracing."""
 from __future__ import annotations
+
+from services.retry import retry_with_backoff
 
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
@@ -12,10 +14,9 @@ import time
 
 
 class RAGChain:
-    def __init__(self, retriever: HybridRetriever, prompt_version: str = "rag_v1"):
+    def __init__(self, retriever: HybridRetriever, prompt_version: str = "rag_v1", reranker=None):
         self.retriever = retriever
-        # Use a smaller/different model for generation to split the rate limit load.
-        # The evaluator (judge) will still use the more powerful Config.GROQ_MODEL.
+        self.reranker = reranker
         self.model_name = "llama-3.1-8b-instant"
         self.llm = ChatGroq(
             model=self.model_name,
@@ -42,6 +43,7 @@ class RAGChain:
             ]
         )
 
+    @retry_with_backoff(max_retries=3, base_delay=2.0)
     def _generate(self, context: str, question: str) -> str:
         """Run LLM generation with LangSmith tracing."""
         chain = self.prompt_template | self.llm | StrOutputParser()
@@ -49,10 +51,14 @@ class RAGChain:
             return chain.invoke({"context": context, "question": question})
 
     def query(self, question: str, top_k: int = 5) -> dict:
-        """Run full RAG pipeline: retrieve -> format -> generate."""
+        """Run full RAG pipeline: retrieve -> rerank -> format -> generate."""
         start_time = time.time()
 
-        retrieved = self.retriever.retrieve(question, top_k=top_k)
+        candidates = self.retriever.retrieve(question, top_k=top_k * 2)
+        if self.reranker:
+            retrieved = self.reranker.rerank(question, candidates, top_k=top_k)
+        else:
+            retrieved = candidates[:top_k]
         context = self._format_context(retrieved)
         answer = self._generate(context, question)
 
@@ -75,9 +81,13 @@ class RAGChain:
         top_k = params.get("top_k", 5)
         dense_weight = params.get("dense_weight", 0.6)
 
-        retrieved = self.retriever.retrieve(
-            question, top_k=top_k, dense_weight=dense_weight
+        candidates = self.retriever.retrieve(
+            question, top_k=top_k * 2, dense_weight=dense_weight
         )
+        if self.reranker:
+            retrieved = self.reranker.rerank(question, candidates, top_k=top_k)
+        else:
+            retrieved = candidates[:top_k]
         context = self._format_context(retrieved)
         answer = self._generate(context, question)
 
