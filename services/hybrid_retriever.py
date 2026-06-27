@@ -9,14 +9,14 @@ class HybridRetriever:
         self.sparse = bm25_store
 
     def retrieve(
-        self, query: str, top_k: int = 5, dense_weight: float = 0.6
+        self, query: str, top_k: int = 5, dense_weight: float = 0.6, source_filter: str = None
     ) -> list[dict]:
         """
         Hybrid retrieval using Reciprocal Rank Fusion (RRF).
         dense_weight: weight for dense results (0-1). Sparse weight = 1 - dense_weight.
         """
-        dense_results = self.dense.search(query, top_k=top_k * 2)
-        sparse_results = self.sparse.search(query, top_k=top_k * 2)
+        dense_results = self.dense.search(query, top_k=top_k * 2, source_filter=source_filter)
+        sparse_results = self.sparse.search(query, top_k=top_k * 2, source_filter=source_filter)
 
         # RRF scoring: score = sum(weight / (k + rank)) across retrieval methods
         k = 60  # RRF constant

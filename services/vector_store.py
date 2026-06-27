@@ -7,9 +7,18 @@ from services.retry import retry_with_backoff
 import uuid
 
 
+import os
+
 class VectorStore:
     def __init__(self, collection_name: str = None):
-        self.client = QdrantClient(path="qdrant_data")  # local persistent storage
+        qdrant_url = os.getenv("QDRANT_URL")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        
+        if qdrant_url and qdrant_api_key:
+            self.client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        else:
+            self.client = QdrantClient(path="qdrant_data")  # local persistent storage
+            
         self.collection = collection_name or Config.QDRANT_COLLECTION
         self.embedder = EmbeddingService()
 
@@ -44,12 +53,25 @@ class VectorStore:
             self.client.upsert(collection_name=self.collection, points=points)
 
     @retry_with_backoff(max_retries=3, base_delay=1.0)
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(self, query: str, top_k: int = 5, source_filter: str = None) -> list[dict]:
         """Dense retrieval — embed query and search Qdrant."""
         query_vector = self.embedder.embed_query(query)
+        
+        query_filter = None
+        if source_filter:
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="source",
+                        match=models.MatchValue(value=source_filter),
+                    )
+                ]
+            )
+
         results = self.client.search(
             collection_name=self.collection,
             query_vector=query_vector,
+            query_filter=query_filter,
             limit=top_k,
         )
         return [

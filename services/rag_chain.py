@@ -80,9 +80,10 @@ class RAGChain:
 
         top_k = params.get("top_k", 5)
         dense_weight = params.get("dense_weight", 0.6)
+        source_filter = params.get("source_filter")
 
         candidates = self.retriever.retrieve(
-            question, top_k=top_k * 2, dense_weight=dense_weight
+            question, top_k=top_k * 2, dense_weight=dense_weight, source_filter=source_filter
         )
         if self.reranker:
             retrieved = self.reranker.rerank(question, candidates, top_k=top_k)

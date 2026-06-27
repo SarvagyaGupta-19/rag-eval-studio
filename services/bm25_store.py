@@ -17,22 +17,31 @@ class BM25Store:
         tokenized = [self._tokenize(c.content) for c in chunks]
         self.bm25 = BM25Okapi(tokenized)
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(self, query: str, top_k: int = 5, source_filter: str = None) -> list[dict]:
         """Sparse retrieval using BM25."""
         if not self.bm25:
             raise ValueError("BM25 index not built. Call index() first.")
         tokenized_query = self._tokenize(query)
         scores = self.bm25.get_scores(tokenized_query)
-        top_indices = scores.argsort()[-top_k:][::-1]
-        return [
-            {
+        top_indices = scores.argsort()[::-1]
+        
+        results = []
+        for i in top_indices:
+            if scores[i] <= 0:
+                continue
+            metadata = self.documents[i].metadata
+            if source_filter and metadata.get("source") != source_filter:
+                continue
+            
+            results.append({
                 "content": self.documents[i].content,
                 "score": float(scores[i]),
-                "metadata": self.documents[i].metadata,
-            }
-            for i in top_indices
-            if scores[i] > 0
-        ]
+                "metadata": metadata,
+            })
+            if len(results) >= top_k:
+                break
+                
+        return results
 
     def add_chunks(self, new_chunks: list[Chunk]):
         """Dynamically append new chunks, rebuild index, and save."""

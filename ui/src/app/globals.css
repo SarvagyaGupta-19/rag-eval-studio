@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0a0a0c;
+  --color-foreground: #ededed;
+  --color-primary: #9333ea;
+  --color-secondary: #a855f7;
+}
+
+:root {
+  --background: #030504;
+  --foreground: #ffffff;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden; /* Prevent scrolling for the full-screen chat experience */
+}
+
+/* Halftone matrix background */
+.bg-halftone-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  background-color: #050505;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+/* Wavy abstract lighting over the halftone to give it 3D cloth folds */
+.bg-halftone-fixed::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(115deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.1) 25%, rgba(0,0,0,0.95) 50%, rgba(0,0,0,0.1) 75%, rgba(0,0,0,0.95) 100%),
+    linear-gradient(35deg, rgba(0,0,0,0.9) 0%, transparent 40%, rgba(0,0,0,0.8) 80%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
