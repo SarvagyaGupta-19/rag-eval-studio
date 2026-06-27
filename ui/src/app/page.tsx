@@ -24,7 +24,7 @@ export default function Home() {
   const [justFinished, setJustFinished] = useState(false);
   const [attachedFilename, setAttachedFilename] = useState<string | null>(null);
   const [isAppLoading, setIsAppLoading] = useState(true);
-  const [loadingMood, setLoadingMood] = useState<any>("watching");
+  const [loadingMood, setLoadingMood] = useState<"watching" | "friendly" | "confusion" | "joy" | "upset" | "sly" | "angry">("watching");
   const [spinRot, setSpinRot] = useState(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
